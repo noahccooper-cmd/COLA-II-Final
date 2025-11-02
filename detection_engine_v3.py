@@ -246,7 +246,7 @@ class LawsuitPatterns:
             r'12b[- ]1\s+fee',
             r'sub[- ]?(?:ta|transfer\s+agency)',
             r'shareholder\s+servicing\s+fee',
-            r'finder[\'']?s?\s+fee',
+            r"finder[']?s?\s+fee",
             r'placement\s+fee',
         ],
         'severity': Severity.HIGH,
