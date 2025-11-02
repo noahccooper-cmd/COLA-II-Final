@@ -1,0 +1,13 @@
+# COLA II - Ultimate Edition Requirements
+# Python 3.8+ required
+
+# Web framework
+flask==3.0.0
+flask-cors==4.0.0
+werkzeug==3.0.1
+
+# PDF processing
+PyMuPDF==1.23.8
+
+# Optional but recommended
+python-dotenv==1.0.0
