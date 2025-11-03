@@ -18,22 +18,40 @@ class DatabaseManager:
     Persistent storage layer for COLA II Internal Intelligence
 
     This is the MOAT. Every document analyzed makes the system smarter.
+
+    Uses singleton pattern to ensure only one database connection exists.
     """
 
-    def __init__(self, db_path: str = "data/cola.duckdb"):
-        """Initialize database connection and create schema if needed"""
-        self.db_path = db_path
+    _instance = None
+    _conn = None
+    _initialized = False
+
+    def __new__(cls, db_path: str = "data/cola.duckdb"):
+        """Ensure only one instance of DatabaseManager exists (Singleton pattern)"""
+        if cls._instance is None:
+            cls._instance = super(DatabaseManager, cls).__new__(cls)
+            cls._instance.db_path = db_path
+            cls._instance._init_connection()
+        return cls._instance
+
+    def _init_connection(self):
+        """Initialize single shared connection"""
+        if self._initialized:
+            return
 
         # Ensure data directory exists
         Path("data").mkdir(exist_ok=True)
 
-        # Connect to DuckDB
-        self.conn = duckdb.connect(db_path)
+        # Connect to DuckDB (single shared connection)
+        if self._conn is None:
+            self._conn = duckdb.connect(self.db_path)
+            self.conn = self._conn  # Keep self.conn for backward compatibility
 
-        # Initialize schema
-        self._init_schema()
+            # Initialize schema
+            self._init_schema()
 
-        print(f"📊 Database initialized: {db_path}")
+            self._initialized = True
+            print(f"📊 Database initialized: {self.db_path}")
 
     def _init_schema(self):
         """Execute schema initialization from SQL file"""
@@ -486,9 +504,11 @@ class DatabaseManager:
         }
 
     def close(self):
-        """Close database connection"""
-        if self.conn:
-            self.conn.close()
+        """Close database connection (only call this when shutting down the entire app)"""
+        if self._conn:
+            self._conn.close()
+            DatabaseManager._conn = None
+            DatabaseManager._initialized = False
             print("   📊 Database connection closed")
 
 
