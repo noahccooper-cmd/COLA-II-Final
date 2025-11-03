@@ -648,14 +648,20 @@ def get_document(doc_id):
         # Get findings
         findings = db.get_document_findings(doc_id)
 
+        # Apply deduplication (same as upload endpoint)
+        dedup_result = deduplicate_findings(findings)
+
         # Get percentile ranking
         percentile = db.get_document_percentile(doc_id)
 
         return jsonify({
             'document': document,
-            'findings': findings,
+            'findings': dedup_result['grouped_findings'],  # Return deduplicated findings
+            'grouped_findings': dedup_result['grouped_findings'],
+            'total_unique_issues': dedup_result['total_unique_issues'],
+            'total_instances': dedup_result['total_instances'],
             'percentile': percentile,
-            'total_findings': len(findings)
+            'total_findings': dedup_result['total_unique_issues']  # Show unique count
         })
     except Exception as e:
         print(f"❌ ERROR: {e}")
@@ -944,4 +950,4 @@ if __name__ == '__main__':
     print("Ready for billion-dollar demo! 🚀")
     print("="*80 + "\n")
     
-    app.run(debug=True, port=5001, host='0.0.0.0')
+    app.run(debug=True, port=5001, host='0.0.0.0', use_reloader=False)
