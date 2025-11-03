@@ -11,6 +11,8 @@ from datetime import datetime
 from typing import List, Dict, Optional
 import json
 import time
+import signal
+import atexit
 
 # Flask
 from flask import Flask, request, jsonify, send_file, send_from_directory
@@ -95,6 +97,34 @@ except Exception as e:
     traceback.print_exc()
     sys.exit(1)
 
+print("="*80 + "\n")
+
+
+# ============================================================================
+# SHUTDOWN HANDLERS - PREVENT LOCK FILES
+# ============================================================================
+
+def cleanup_database():
+    """Clean shutdown of database connection"""
+    try:
+        print("\n🔄 Shutting down database connection...")
+        db.close()
+        print("✅ Database closed cleanly")
+    except Exception as e:
+        print(f"⚠️  Warning during shutdown: {e}")
+
+def signal_handler(signum, frame):
+    """Handle termination signals gracefully"""
+    print(f"\n⚠️  Received signal {signum}, shutting down gracefully...")
+    cleanup_database()
+    sys.exit(0)
+
+# Register shutdown handlers
+atexit.register(cleanup_database)
+signal.signal(signal.SIGINT, signal_handler)   # Ctrl+C
+signal.signal(signal.SIGTERM, signal_handler)  # Kill command
+
+print("✅ Shutdown handlers registered - database will close cleanly")
 print("="*80 + "\n")
 
 
