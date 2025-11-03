@@ -191,6 +191,89 @@ def extract_pages_with_layout(pdf_path: Path) -> List[DocumentPage]:
 
 
 # ============================================================================
+# SMART DEDUPLICATION - GROUP IDENTICAL FINDINGS
+# ============================================================================
+
+def deduplicate_findings(findings: List[Dict]) -> Dict:
+    """
+    Group identical findings to avoid showing "Revenue sharing (6 instances)"
+    as 6 separate cards.
+
+    Groups by: llm_analysis + category + severity
+    Returns: grouped_findings structure with instances counted
+    """
+    from collections import defaultdict
+    import hashlib
+
+    # Group findings by their "signature"
+    groups = defaultdict(list)
+
+    for finding in findings:
+        # Create signature from analysis text + category + severity
+        signature = f"{finding.get('llm_analysis', '')}_{finding.get('category', '')}_{finding.get('severity', '')}"
+        group_id = hashlib.md5(signature.encode()).hexdigest()[:12]
+
+        groups[group_id].append(finding)
+
+    # Build grouped structure
+    grouped_findings = []
+
+    for group_id, group_findings in groups.items():
+        instance_count = len(group_findings)
+        first_finding = group_findings[0]
+
+        # Collect all pages and excerpts
+        pages = []
+        excerpts = []
+
+        for f in group_findings:
+            citations = f.get('citations', [])
+            for citation in citations:
+                page_no = citation.get('page_no', 0)
+                if page_no and page_no not in pages:
+                    pages.append(page_no)
+                excerpt = citation.get('excerpt', '')
+                if excerpt and excerpt not in excerpts:
+                    excerpts.append(excerpt[:100])
+
+        pages.sort()
+
+        # Create consolidated finding
+        grouped_finding = {
+            **first_finding,
+            'dedup_group_id': group_id,
+            'instance_count': instance_count,
+            'consolidated_pages': pages,
+            'consolidated_excerpts': excerpts[:3],  # Limit to 3 examples
+            'all_instances': group_findings  # Keep originals for PDF
+        }
+
+        grouped_findings.append(grouped_finding)
+
+    # Sort by severity and instance count
+    severity_order = {
+        'prohibited_transaction': 0,
+        'critical': 1,
+        'high': 2,
+        'medium': 3,
+        'low': 4
+    }
+
+    grouped_findings.sort(
+        key=lambda x: (
+            severity_order.get(x.get('severity', 'low'), 5),
+            -x.get('instance_count', 1)
+        )
+    )
+
+    return {
+        'grouped_findings': grouped_findings,
+        'total_unique_issues': len(grouped_findings),
+        'total_instances': len(findings)
+    }
+
+
+# ============================================================================
 # DOCUMENT PROCESSING
 # ============================================================================
 
@@ -223,8 +306,15 @@ def process_document(pdf_path: Path, doc_id: Optional[str] = None) -> Dict:
     # 3. Generate summary
     summary = findings_summary(findings)
     print(f"   📊 Risk Score: {summary.get('lawsuit_risk_score', 0)}/100")
-    
-    # 4. Create result
+
+    # 4. Convert findings to dicts
+    findings_dicts = [f.to_dict() for f in findings]
+
+    # 5. Apply smart deduplication
+    dedup_result = deduplicate_findings(findings_dicts)
+    print(f"   🔄 Deduplicated: {dedup_result['total_instances']} → {dedup_result['total_unique_issues']} unique issues")
+
+    # 6. Create result
     result = {
         "document": pdf_path.name,
         "doc_id": doc_id,
@@ -233,9 +323,12 @@ def process_document(pdf_path: Path, doc_id: Optional[str] = None) -> Dict:
         "analyzer_version": APP_VERSION,
         "engine": "v3-lawsuit-trained",
         "summary": summary,
-        "findings": [f.to_dict() for f in findings]
+        "findings": findings_dicts,  # Original findings for database
+        "grouped_findings": dedup_result['grouped_findings'],  # Grouped for UI
+        "total_unique_issues": dedup_result['total_unique_issues'],
+        "total_instances": dedup_result['total_instances']
     }
-    
+
     return result
 
 
@@ -333,11 +426,15 @@ def upload_document():
         file_content = file.read()
         file.seek(0)  # Reset for saving
 
-        # Get optional metadata from form
+        # Get optional metadata from form (including new client tagging fields)
         metadata = {
             'document_type': request.form.get('doc_type', 'other'),
             'plan_name': request.form.get('plan_name'),
-            'plan_size_bucket': request.form.get('plan_size', 'unknown')
+            'plan_size_bucket': request.form.get('plan_size', 'unknown'),
+            'client_tag': request.form.get('client_tag'),  # NEW: Client/project name
+            'is_benchmark_eligible': request.form.get('is_benchmark', 'true').lower() == 'true',  # NEW: Include in benchmarks
+            'plan_size_category': request.form.get('plan_size_category'),  # NEW: For peer grouping
+            'plan_industry': request.form.get('plan_industry')  # NEW: Industry classification
         }
 
         print(f"\n{'='*80}")
@@ -737,6 +834,93 @@ def serve_output(filename):
         return send_from_directory(OUTPUT_DIR, filename)
     except FileNotFoundError:
         return jsonify({"error": "File not found"}), 404
+
+
+@app.route('/api/mark-reviewed/<finding_id>', methods=['POST'])
+def mark_finding_reviewed(finding_id):
+    """
+    Mark a finding as reviewed by the user
+
+    Production polish: Allow users to mark findings as "reviewed"
+    so they can track progress
+    """
+    try:
+        data = request.get_json() or {}
+        reviewed_by = data.get('reviewed_by', 'user')
+
+        # Update finding in database
+        db.conn.execute("""
+            UPDATE findings
+            SET reviewed_by_user = TRUE,
+                reviewed_at = ?,
+                reviewed_by = ?
+            WHERE finding_id = ?
+        """, [datetime.utcnow(), reviewed_by, finding_id])
+
+        return jsonify({
+            'success': True,
+            'finding_id': finding_id,
+            'reviewed_at': datetime.utcnow().isoformat() + 'Z'
+        })
+    except Exception as e:
+        print(f"❌ ERROR: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/filter-documents', methods=['GET'])
+def filter_documents():
+    """
+    Filter documents by client tag or benchmark status
+
+    Production polish: Allow filtering by client/project
+    """
+    try:
+        client_tag = request.args.get('client_tag')
+        benchmark_only = request.args.get('benchmark_only', 'false').lower() == 'true'
+
+        query = """
+            SELECT doc_id, filename, upload_date, document_type,
+                   total_findings, risk_score, processing_status,
+                   plan_name, page_count, client_tag, is_benchmark_eligible
+            FROM documents
+            WHERE processing_status = 'completed'
+        """
+
+        params = []
+
+        if client_tag:
+            query += " AND client_tag = ?"
+            params.append(client_tag)
+
+        if benchmark_only:
+            query += " AND is_benchmark_eligible = TRUE"
+
+        query += " ORDER BY upload_date DESC"
+
+        result = db.conn.execute(query, params).fetchall()
+
+        columns = ['doc_id', 'filename', 'upload_date', 'document_type',
+                   'total_findings', 'risk_score', 'processing_status',
+                   'plan_name', 'page_count', 'client_tag', 'is_benchmark_eligible']
+
+        documents = []
+        for row in result:
+            doc = dict(zip(columns, row))
+            if doc['upload_date']:
+                doc['upload_date'] = doc['upload_date'].isoformat()
+            documents.append(doc)
+
+        return jsonify({
+            'documents': documents,
+            'total': len(documents),
+            'filter': {
+                'client_tag': client_tag,
+                'benchmark_only': benchmark_only
+            }
+        })
+    except Exception as e:
+        print(f"❌ ERROR: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 # ============================================================================
