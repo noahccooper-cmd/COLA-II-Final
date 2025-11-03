@@ -35,23 +35,56 @@ class DatabaseManager:
         return cls._instance
 
     def _init_connection(self):
-        """Initialize single shared connection"""
+        """Initialize single shared connection with retry logic"""
         if self._initialized:
             return
 
         # Ensure data directory exists
         Path("data").mkdir(exist_ok=True)
 
-        # Connect to DuckDB (single shared connection)
+        # Connect to DuckDB (single shared connection) with retry logic
         if self._conn is None:
-            self._conn = duckdb.connect(self.db_path)
-            self.conn = self._conn  # Keep self.conn for backward compatibility
+            import time
 
-            # Initialize schema
-            self._init_schema()
+            max_retries = 3
+            retry_delay = 1  # seconds
 
-            self._initialized = True
-            print(f"📊 Database initialized: {self.db_path}")
+            for attempt in range(max_retries):
+                try:
+                    self._conn = duckdb.connect(self.db_path)
+                    self.conn = self._conn  # Keep self.conn for backward compatibility
+
+                    # Initialize schema
+                    self._init_schema()
+
+                    self._initialized = True
+                    print(f"📊 Database initialized: {self.db_path}")
+                    return
+
+                except Exception as e:
+                    error_msg = str(e)
+
+                    # Check if it's a lock error
+                    if "lock" in error_msg.lower() or "locked" in error_msg.lower():
+                        if attempt < max_retries - 1:
+                            print(f"⚠️  Database locked (attempt {attempt + 1}/{max_retries})")
+                            print(f"   Waiting {retry_delay}s before retry...")
+                            time.sleep(retry_delay)
+                            retry_delay *= 2  # Exponential backoff
+                            continue
+                        else:
+                            # Final attempt failed - provide helpful error
+                            print("\n❌ FATAL: Database is locked by another process")
+                            print(f"\n   Error: {error_msg}\n")
+                            print("🔧 TO FIX THIS:")
+                            print("   1. Run: ./scripts/cleanup.sh")
+                            print("   2. Or manually: pkill -9 -f backend.py")
+                            print("   3. Remove locks: rm -f data/cola.duckdb*.wal data/cola.duckdb*.shm")
+                            print("   4. Then restart the server\n")
+                            raise Exception(f"Database locked - see instructions above") from e
+                    else:
+                        # Some other error - re-raise
+                        raise
 
     def _init_schema(self):
         """Execute schema initialization from SQL file"""
@@ -504,12 +537,22 @@ class DatabaseManager:
         }
 
     def close(self):
-        """Close database connection (only call this when shutting down the entire app)"""
+        """Close database connection cleanly (only call this when shutting down the entire app)"""
         if self._conn:
-            self._conn.close()
-            DatabaseManager._conn = None
-            DatabaseManager._initialized = False
-            print("   📊 Database connection closed")
+            try:
+                # Checkpoint to ensure all data is written
+                self._conn.execute("CHECKPOINT")
+                print("   💾 Database checkpoint complete")
+            except Exception as e:
+                print(f"   ⚠️  Checkpoint warning: {e}")
+
+            try:
+                self._conn.close()
+                DatabaseManager._conn = None
+                DatabaseManager._initialized = False
+                print("   📊 Database connection closed cleanly")
+            except Exception as e:
+                print(f"   ⚠️  Error closing database: {e}")
 
 
 # ============================================================================
