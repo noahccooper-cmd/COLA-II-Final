@@ -627,6 +627,109 @@ def get_dashboard():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/generate-report/<doc_id>', methods=['POST'])
+def generate_report(doc_id):
+    """
+    Generate PDF compliance report on-demand for a specific document
+
+    This endpoint allows users to regenerate or download compliance reports
+    for previously analyzed documents without re-analyzing the entire document.
+    """
+    try:
+        # Check if PDF report generation is available
+        if not PDF_REPORT_SUPPORT:
+            return jsonify({
+                "error": "PDF report generation not available",
+                "message": "Install required packages: pip install reportlab"
+            }), 503
+
+        # Get document metadata
+        document = db.get_document_by_id(doc_id)
+        if not document:
+            return jsonify({"error": "Document not found"}), 404
+
+        # Get findings
+        findings = db.get_document_findings(doc_id)
+
+        # Get percentile ranking
+        try:
+            percentile = db.get_document_percentile(doc_id)
+        except Exception as e:
+            print(f"⚠️  Warning: Could not calculate percentile: {e}")
+            percentile = {'percentile': 0, 'risk_score': document['risk_score']}
+
+        # Build findings summary from database data
+        by_category = {}
+        by_severity = {}
+        high_severity_count = 0
+        total_confidence = 0
+
+        for finding in findings:
+            # Count by category
+            cat = finding.get('category', 'unknown')
+            by_category[cat] = by_category.get(cat, 0) + 1
+
+            # Count by severity
+            sev = finding.get('severity', 'unknown')
+            by_severity[sev] = by_severity.get(sev, 0) + 1
+
+            # Count high severity
+            if sev in ['prohibited_transaction', 'critical', 'high']:
+                high_severity_count += 1
+
+            # Sum confidence
+            total_confidence += finding.get('confidence', 0)
+
+        avg_confidence = total_confidence / len(findings) if findings else 0
+
+        # Create findings data structure matching the expected format
+        findings_data = {
+            "document": document['filename'],
+            "doc_id": doc_id,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "pages": document.get('page_count', 0),
+            "analyzer_version": APP_VERSION,
+            "engine": "v3-lawsuit-trained",
+            "summary": {
+                "total_findings": len(findings),
+                "by_category": by_category,
+                "by_severity": by_severity,
+                "avg_confidence": avg_confidence,
+                "high_severity_count": high_severity_count,
+                "lawsuit_risk_score": document['risk_score']
+            },
+            "findings": findings,
+            "percentile": percentile
+        }
+
+        # Generate PDF report
+        pdf_filename = f"{doc_id}_COMPLIANCE_REPORT.pdf"
+        pdf_path = OUTPUT_DIR / pdf_filename
+
+        print(f"\n📑 Generating PDF report for {document['filename']}...")
+
+        generate_compliance_report(
+            findings_data=findings_data,
+            output_path=str(pdf_path)
+        )
+
+        print(f"✅ PDF report generated: {pdf_filename}")
+
+        # Return the PDF file for download
+        return send_file(
+            pdf_path,
+            as_attachment=True,
+            download_name=f"{document['filename'].replace('.pdf', '')}_COMPLIANCE_REPORT.pdf",
+            mimetype='application/pdf'
+        )
+
+    except Exception as e:
+        print(f"❌ ERROR generating report: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/outputs/<path:filename>')
 def serve_output(filename):
     """Serve files from outputs directory"""

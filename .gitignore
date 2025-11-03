@@ -205,3 +205,25 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# COLA II - Runtime Data and Generated Files
+# Database files (DuckDB)
+data/
+*.duckdb
+*.duckdb.wal
+*.duckdb.shm
+
+# Uploaded documents
+uploads/
+
+# Generated reports and outputs
+outputs/
+
+# Audit logs
+audits/
+
+# Server logs
+backend.log
+backend_*.log
+server.log
+nohup.out
