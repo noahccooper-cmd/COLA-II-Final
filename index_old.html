@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COLA II - Internal Intelligence</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 40px 0;
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+
+        .gold-bars {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin: 20px 0;
+        }
+
+        .gold-bar {
+            width: 30px;
+            height: 8px;
+            background: #DAA520;
+        }
+
+        .subtitle {
+            font-size: 18px;
+            color: #888;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .upload-zone {
+            background: #1a1a1a;
+            border: 2px dashed #333;
+            border-radius: 12px;
+            padding: 60px 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 30px;
+        }
+
+        .upload-zone:hover {
+            border-color: #DAA520;
+            background: #222;
+        }
+
+        .upload-zone.dragover {
+            border-color: #DAA520;
+            background: #222;
+        }
+
+        .upload-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            color: #555;
+        }
+
+        .upload-text {
+            font-size: 18px;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            font-size: 14px;
+            color: #555;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .analyzing {
+            display: none;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .analyzing.active {
+            display: block;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #333;
+            border-top-color: #DAA520;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+        }
+
+        .results.active {
+            display: block;
+        }
+
+        .risk-card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .risk-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .risk-level {
+            font-size: 20px;
+            font-weight: 700;
+            padding: 10px 20px;
+            border-radius: 6px;
+        }
+
+        .risk-high {
+            background: #dc3545;
+            color: white;
+        }
+
+        .risk-medium {
+            background: #ffc107;
+            color: #000;
+        }
+
+        .risk-low {
+            background: #28a745;
+            color: white;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-box {
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: 700;
+            color: #DAA520;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .findings-list {
+            margin-top: 30px;
+        }
+
+        .finding-item {
+            background: #1a1a1a;
+            border-left: 4px solid #DAA520;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+
+        .finding-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .finding-category {
+            font-size: 13px;
+            font-weight: 600;
+            color: #DAA520;
+            text-transform: uppercase;
+        }
+
+        .finding-severity {
+            font-size: 11px;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        .severity-high, .severity-critical, .severity-prohibited_transaction {
+            background: #dc3545;
+            color: white;
+        }
+
+        .severity-medium {
+            background: #ffc107;
+            color: #000;
+        }
+
+        .severity-low {
+            background: #28a745;
+            color: white;
+        }
+
+        .finding-text {
+            color: #ccc;
+            line-height: 1.6;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .finding-citation {
+            font-size: 11px;
+            color: #666;
+            font-style: italic;
+            margin-top: 8px;
+        }
+
+        .finding-precedent {
+            font-size: 11px;
+            color: #DAA520;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #333;
+        }
+
+        .download-btn {
+            background: #DAA520;
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .download-btn:hover {
+            background: #B8860B;
+            transform: translateY(-2px);
+        }
+
+        .download-btn:disabled {
+            background: #555;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-card {
+            background: #dc3545;
+            color: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .error-card.active {
+            display: block;
+        }
+
+        footer {
+            margin-top: 60px;
+            padding: 20px;
+            text-align: center;
+            color: #555;
+            font-size: 11px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 36px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .risk-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>COLA II</h1>
+            <div class="gold-bars">
+                <div class="gold-bar"></div>
+                <div class="gold-bar"></div>
+                <div class="gold-bar"></div>
+                <div class="gold-bar"></div>
+                <div class="gold-bar"></div>
+            </div>
+            <div class="subtitle">Internal Intelligence</div>
+        </header>
+
+        <div class="error-card" id="errorCard">
+            <strong>Error:</strong> <span id="errorText"></span>
+        </div>
+
+        <div class="upload-zone" id="uploadZone">
+            <div class="upload-icon">↑</div>
+            <div class="upload-text">Drop 408(b)(2) Disclosure</div>
+            <div class="upload-hint">or click to browse</div>
+            <input type="file" id="fileInput" accept=".pdf">
+        </div>
+
+        <div class="analyzing" id="analyzing">
+            <div class="spinner"></div>
+            <div style="color: #888;">Analyzing with 70+ lawsuit-trained patterns...</div>
+            <div style="color: #555; font-size: 12px; margin-top: 10px;">
+                Tussey v. ABB | Cornell v. Cunningham | Harris v. Amgen
+            </div>
+        </div>
+
+        <div class="results" id="results">
+            <div class="risk-card">
+                <div class="risk-header">
+                    <h2 style="color: #DAA520;">Risk Assessment</h2>
+                    <div class="risk-level" id="riskLevel">HIGH RISK</div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-number" id="totalFindings">0</div>
+                        <div class="stat-label">Total Findings</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number" id="highSeverity">0</div>
+                        <div class="stat-label">High Severity</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number" id="lawsuitRisk">0</div>
+                        <div class="stat-label">Lawsuit Risk</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number" id="confidence">0%</div>
+                        <div class="stat-label">Avg Confidence</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="risk-card">
+                <h2 style="color: #DAA520; margin-bottom: 20px;">Findings</h2>
+                <div class="findings-list" id="findingsList"></div>
+            </div>
+
+            <button class="download-btn" id="downloadBtn">📄 Download PDF Compliance Report</button>
+        </div>
+
+        <footer>
+            <strong>COLA II v3.0 FINAL</strong><br>
+            Lawsuit-Trained Detection Engine<br>
+            70+ patterns from Tussey v. ABB ($55M), Cornell v. Cunningham (Supreme Court), Harris v. Amgen<br>
+            <br>
+            <span style="color: #333;">100% Offline | Privacy-First | Production-Ready</span>
+        </footer>
+    </div>
+
+    <script>
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const analyzing = document.getElementById('analyzing');
+        const results = document.getElementById('results');
+        const errorCard = document.getElementById('errorCard');
+        const errorText = document.getElementById('errorText');
+        const downloadBtn = document.getElementById('downloadBtn');
+        
+        let currentResults = null;
+
+        // Upload zone click
+        uploadZone.addEventListener('click', () => fileInput.click());
+
+        // File selection
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        // Drag and drop
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        // Handle file upload
+        async function handleFile(file) {
+            if (!file.name.toLowerCase().endsWith('.pdf')) {
+                showError('Please upload a PDF file');
+                return;
+            }
+
+            // Hide upload, show analyzing
+            uploadZone.style.display = 'none';
+            results.classList.remove('active');
+            errorCard.classList.remove('active');
+            analyzing.classList.add('active');
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Analysis failed');
+                }
+
+                const data = await response.json();
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                currentResults = data;
+                displayResults(data);
+
+            } catch (error) {
+                console.error('Error:', error);
+                showError(error.message || 'Analysis failed. Please try again.');
+                uploadZone.style.display = 'block';
+            } finally {
+                analyzing.classList.remove('active');
+            }
+        }
+
+        // Display results
+        function displayResults(data) {
+            const summary = data.summary || {};
+            
+            // Risk level
+            const lawsuitRisk = summary.lawsuit_risk_score || 0;
+            const riskLevelEl = document.getElementById('riskLevel');
+            
+            if (lawsuitRisk >= 70) {
+                riskLevelEl.textContent = '🔴 HIGH RISK';
+                riskLevelEl.className = 'risk-level risk-high';
+            } else if (lawsuitRisk >= 50) {
+                riskLevelEl.textContent = '🟡 MEDIUM RISK';
+                riskLevelEl.className = 'risk-level risk-medium';
+            } else {
+                riskLevelEl.textContent = '🟢 LOW RISK';
+                riskLevelEl.className = 'risk-level risk-low';
+            }
+
+            // Stats
+            document.getElementById('totalFindings').textContent = summary.total_findings || 0;
+            document.getElementById('highSeverity').textContent = summary.high_severity_count || 0;
+            document.getElementById('lawsuitRisk').textContent = `${lawsuitRisk}/100`;
+            document.getElementById('confidence').textContent = `${Math.round((summary.avg_confidence || 0) * 100)}%`;
+
+            // Findings list
+            const findingsList = document.getElementById('findingsList');
+            findingsList.innerHTML = '';
+
+            const findings = data.findings || [];
+            
+            // Sort by severity
+            const severityOrder = {
+                'prohibited_transaction': 0,
+                'critical': 1,
+                'high': 2,
+                'medium': 3,
+                'low': 4
+            };
+            
+            findings.sort((a, b) => {
+                const orderA = severityOrder[a.severity] || 5;
+                const orderB = severityOrder[b.severity] || 5;
+                return orderA - orderB;
+            });
+            
+            const displayFindings = findings.slice(0, 15); // Show top 15
+
+            displayFindings.forEach((finding, idx) => {
+                const findingEl = document.createElement('div');
+                findingEl.className = 'finding-item';
+
+                const severity = finding.severity || 'medium';
+                const severityClass = `severity-${severity.toLowerCase().replace(/ /g, '_')}`;
+                
+                const category = (finding.category || 'unknown').replace(/_/g, ' ').toUpperCase();
+                const citation = finding.citations && finding.citations[0] && finding.citations[0].excerpt ? 
+                    finding.citations[0].excerpt : '';
+                const analysis = finding.llm_analysis || 'No analysis available';
+                const precedent = finding.lawsuit_precedent || '';
+                
+                findingEl.innerHTML = `
+                    <div class="finding-header">
+                        <div class="finding-category">${category}</div>
+                        <div class="finding-severity ${severityClass}">${severity.toUpperCase().replace(/_/g, ' ')}</div>
+                    </div>
+                    <div class="finding-text">${analysis}</div>
+                    ${citation ? `<div class="finding-citation">"${citation.substring(0, 150)}${citation.length > 150 ? '...' : ''}"</div>` : ''}
+                    ${precedent ? `<div class="finding-precedent">⚖️ ${precedent}</div>` : ''}
+                `;
+
+                findingsList.appendChild(findingEl);
+            });
+
+            if (findings.length > 15) {
+                const moreEl = document.createElement('div');
+                moreEl.style.textAlign = 'center';
+                moreEl.style.color = '#666';
+                moreEl.style.marginTop = '20px';
+                moreEl.style.fontSize = '13px';
+                moreEl.textContent = `+ ${findings.length - 15} more findings in full PDF report`;
+                findingsList.appendChild(moreEl);
+            }
+
+            if (findings.length === 0) {
+                findingsList.innerHTML = '<div style="text-align: center; color: #666; padding: 40px;">No significant compliance issues detected.</div>';
+            }
+
+            // Enable download button if PDF available
+            if (data.pdf_report) {
+                downloadBtn.disabled = false;
+            } else {
+                downloadBtn.disabled = true;
+                downloadBtn.textContent = '⚠️ PDF Report Not Available';
+            }
+
+            // Show results
+            results.classList.add('active');
+        }
+
+        // Download report
+        downloadBtn.addEventListener('click', () => {
+            if (currentResults && currentResults.pdf_report) {
+                const filename = currentResults.pdf_report.split('/').pop();
+                window.location.href = `/outputs/${filename}`;
+            } else {
+                showError('PDF report not available');
+            }
+        });
+
+        // Show error
+        function showError(message) {
+            errorText.textContent = message;
+            errorCard.classList.add('active');
+            setTimeout(() => errorCard.classList.remove('active'), 6000);
+        }
+    </script>
+</body>
+</html>
