@@ -77,10 +77,24 @@ print(f"   Model: {detection_engine.model_version}")
 print(f"   PDF Support: {PDF_SUPPORT}")
 print(f"   PDF Reports: {PDF_REPORT_SUPPORT}")
 
-# Initialize database for multi-document persistence 📊
+# ============================================================================
+# DATABASE INITIALIZATION - SINGLETON PATTERN
+# ============================================================================
+
 print("\n💾 Initializing Multi-Document Database...")
-db = DatabaseManager()
-print("✅ Database Ready - Data Gravity Enabled")
+print("   Using singleton pattern - one connection for all operations")
+
+try:
+    # Initialize database ONCE at startup (singleton pattern ensures single connection)
+    db = DatabaseManager()
+    print("✅ Database Ready - Data Gravity Enabled")
+    print(f"   Database path: {db.db_path}")
+except Exception as e:
+    print(f"❌ FATAL: Could not initialize database: {e}")
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
+
 print("="*80 + "\n")
 
 
@@ -226,12 +240,31 @@ def index():
 
 @app.route('/api/health', methods=['GET'])
 def health():
-    """Health check endpoint"""
-    return jsonify({
-        "status": "healthy",
+    """Health check endpoint with database status"""
+    try:
+        # Test database connection by getting document count
+        docs = db.get_all_documents()
+        db_status = "connected"
+        db_error = None
+        document_count = len(docs)
+    except Exception as e:
+        db_status = "error"
+        db_error = str(e)
+        document_count = 0
+
+    # Determine overall status
+    overall_status = "healthy" if db_status == "connected" else "unhealthy"
+
+    response = {
+        "status": overall_status,
         "version": APP_VERSION,
         "engine": "v3-lawsuit-trained",
         "ruleset_version": detection_engine.ruleset_version,
+        "database": {
+            "status": db_status,
+            "documents": document_count,
+            "path": db.db_path
+        },
         "pdf_support": PDF_SUPPORT,
         "pdf_report_support": PDF_REPORT_SUPPORT,
         "features": {
@@ -239,7 +272,13 @@ def health():
             "risk_scoring": "Lawsuit risk + obfuscation scores",
             "pdf_reports": "Professional 10-page compliance reports"
         }
-    })
+    }
+
+    if db_error:
+        response["database"]["error"] = db_error
+
+    status_code = 200 if overall_status == "healthy" else 500
+    return jsonify(response), status_code
 
 
 @app.route('/api/upload', methods=['POST'])
@@ -276,7 +315,11 @@ def upload_document():
         print(f"{'='*80}")
 
         # Store document in database (get doc_id)
-        doc_id = db.store_document(filename, file_content, metadata)
+        try:
+            doc_id = db.store_document(filename, file_content, metadata)
+        except Exception as e:
+            print(f"❌ Database error storing document: {e}")
+            return jsonify({'error': f'Database error: {str(e)}'}), 500
 
         # Save file physically
         upload_path = UPLOAD_DIR / f"{doc_id}_{filename}"
@@ -294,26 +337,42 @@ def upload_document():
             metadata['page_count'] = result['pages']
 
         # Store findings in database
-        db.store_findings(doc_id, result['findings'])
+        try:
+            db.store_findings(doc_id, result['findings'])
+        except Exception as e:
+            print(f"❌ Database error storing findings: {e}")
+            return jsonify({'error': f'Database error storing findings: {str(e)}'}), 500
 
         # Calculate risk score
         risk_score = result['summary'].get('lawsuit_risk_score', 0)
 
         # Update document status
-        db.update_document_status(
-            doc_id=doc_id,
-            status='completed',
-            total_findings=result['summary']['total_findings'],
-            risk_score=risk_score,
-            processing_time=processing_time
-        )
+        try:
+            db.update_document_status(
+                doc_id=doc_id,
+                status='completed',
+                total_findings=result['summary']['total_findings'],
+                risk_score=risk_score,
+                processing_time=processing_time
+            )
+        except Exception as e:
+            print(f"❌ Database error updating status: {e}")
+            return jsonify({'error': f'Database error updating status: {str(e)}'}), 500
 
         # Recalculate benchmarks (DATA GRAVITY!)
-        db.calculate_benchmarks()
+        try:
+            db.calculate_benchmarks()
+        except Exception as e:
+            print(f"⚠️  Warning: Could not recalculate benchmarks: {e}")
+            # Non-fatal, continue
 
         # Get percentile ranking
-        percentile_data = db.get_document_percentile(doc_id)
-        result['percentile'] = percentile_data
+        try:
+            percentile_data = db.get_document_percentile(doc_id)
+            result['percentile'] = percentile_data
+        except Exception as e:
+            print(f"⚠️  Warning: Could not calculate percentile: {e}")
+            result['percentile'] = {'percentile': 0, 'risk_score': risk_score}
 
         # Save JSON results
         output_json = OUTPUT_DIR / f"{doc_id}_findings.json"
