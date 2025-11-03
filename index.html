@@ -784,7 +784,13 @@
             contentArea.innerHTML = `
                 <div class="document-view">
                     <div class="doc-header">
-                        <div class="doc-title">${doc.filename}</div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <div class="doc-title">${doc.filename}</div>
+                            <button class="upload-btn" id="generateReportBtn" onclick="generatePDFReport('${doc.doc_id}', '${doc.filename}')"
+                                    style="background: #DAA520; padding: 10px 20px; font-size: 13px;">
+                                📄 Generate PDF Report
+                            </button>
+                        </div>
                         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px;">
                             <div>
                                 <div style="font-size: 11px; color: #666; text-transform: uppercase; margin-bottom: 4px;">Risk Score</div>
@@ -908,6 +914,83 @@
                 alert('Upload failed. Please try again.');
                 document.getElementById('uploadArea').style.display = 'block';
                 document.getElementById('analyzingArea').style.display = 'none';
+            }
+        }
+
+        // ====================================================================
+        // PDF REPORT GENERATION
+        // ====================================================================
+
+        async function generatePDFReport(docId, filename) {
+            const btn = document.getElementById('generateReportBtn');
+
+            if (!btn) return;
+
+            // Disable button and show loading state
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Generating audit report...';
+            btn.style.cursor = 'wait';
+            btn.style.opacity = '0.7';
+
+            try {
+                const response = await fetch(`/api/generate-report/${docId}`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to generate report');
+                }
+
+                // Get the PDF blob
+                const blob = await response.blob();
+
+                // Create download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `${filename.replace('.pdf', '')}_COMPLIANCE_REPORT.pdf`;
+
+                // Trigger download
+                document.body.appendChild(a);
+                a.click();
+
+                // Cleanup
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                // Show success state
+                btn.innerHTML = '✅ Report Downloaded!';
+                btn.style.background = '#28a745';
+
+                // Reset button after 3 seconds
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    btn.style.cursor = 'pointer';
+                    btn.style.opacity = '1';
+                    btn.style.background = '#DAA520';
+                }, 3000);
+
+            } catch (error) {
+                console.error('PDF generation error:', error);
+
+                // Show error state
+                btn.innerHTML = '❌ Generation Failed';
+                btn.style.background = '#dc3545';
+
+                // Reset button after 3 seconds
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    btn.style.cursor = 'pointer';
+                    btn.style.opacity = '1';
+                    btn.style.background = '#DAA520';
+                }, 3000);
+
+                alert(`Failed to generate PDF report: ${error.message}`);
             }
         }
 
