@@ -18,7 +18,12 @@ CREATE TABLE IF NOT EXISTS documents (
     processing_time_seconds FLOAT,
     total_findings INTEGER DEFAULT 0,
     risk_score INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    -- NEW FIELDS FOR PRODUCTION POLISH
+    client_tag VARCHAR,
+    is_benchmark_eligible BOOLEAN DEFAULT TRUE,
+    plan_size_category VARCHAR,
+    plan_industry VARCHAR
 );
 
 -- ============================================================================
@@ -39,7 +44,13 @@ CREATE TABLE IF NOT EXISTS findings (
     citations TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     ruleset_version VARCHAR NOT NULL,
-    model_version VARCHAR NOT NULL
+    model_version VARCHAR NOT NULL,
+    -- NEW FIELDS FOR PRODUCTION POLISH
+    reviewed_by_user BOOLEAN DEFAULT FALSE,
+    reviewed_at TIMESTAMP,
+    reviewed_by VARCHAR,
+    dedup_group_id VARCHAR,
+    instance_count INTEGER DEFAULT 1
 );
 
 -- ============================================================================

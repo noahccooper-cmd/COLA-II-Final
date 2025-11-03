@@ -133,12 +133,13 @@ class DatabaseManager:
             print(f"   ⚠️  Document already analyzed: {existing[0]}")
             return existing[0]
 
-        # Insert document
+        # Insert document with new fields for production polish
         self.conn.execute("""
             INSERT INTO documents
             (doc_id, filename, upload_date, file_hash, plan_name, plan_size_bucket,
-             document_type, page_count, processing_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'processing')
+             document_type, page_count, processing_status,
+             client_tag, is_benchmark_eligible, plan_size_category, plan_industry)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'processing', ?, ?, ?, ?)
         """, [
             doc_id,
             filename,
@@ -147,7 +148,11 @@ class DatabaseManager:
             metadata.get('plan_name'),
             metadata.get('plan_size_bucket', 'unknown'),
             metadata.get('document_type', 'other'),
-            metadata.get('page_count', 0)
+            metadata.get('page_count', 0),
+            metadata.get('client_tag'),
+            metadata.get('is_benchmark_eligible', True),
+            metadata.get('plan_size_category'),
+            metadata.get('plan_industry')
         ])
 
         print(f"   📄 Document stored: {doc_id}")
@@ -311,16 +316,18 @@ class DatabaseManager:
         # Clear existing benchmarks
         self.conn.execute("DELETE FROM benchmark_stats")
 
-        # Get total completed documents
+        # Get total BENCHMARK-ELIGIBLE completed documents only
         total_docs = self.conn.execute("""
-            SELECT COUNT(*) FROM documents WHERE processing_status = 'completed'
+            SELECT COUNT(*) FROM documents
+            WHERE processing_status = 'completed'
+            AND is_benchmark_eligible = TRUE
         """).fetchone()[0]
 
         if total_docs == 0:
-            print("   ⚠️  No completed documents to benchmark")
+            print("   ⚠️  No benchmark-eligible documents available")
             return
 
-        # Calculate category-level benchmarks
+        # Calculate category-level benchmarks (ONLY from benchmark-eligible documents)
         self.conn.execute("""
             INSERT INTO benchmark_stats
             (stat_id, category, subtype, avg_red_flag_score, median_confidence,
@@ -332,14 +339,16 @@ class DatabaseManager:
                 subtype,
                 AVG(red_flag_score) AS avg_red_flag_score,
                 MEDIAN(confidence) AS median_confidence,
-                COUNT(DISTINCT doc_id)::FLOAT / ? AS violation_frequency,
+                COUNT(DISTINCT f.doc_id)::FLOAT / ? AS violation_frequency,
                 COUNT(*) AS sample_size,
                 PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY red_flag_score) AS percentile_25,
                 PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY red_flag_score) AS percentile_50,
                 PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY red_flag_score) AS percentile_75,
                 PERCENTILE_CONT(0.90) WITHIN GROUP (ORDER BY red_flag_score) AS percentile_90
-            FROM findings
-            WHERE decision = 'present'
+            FROM findings f
+            INNER JOIN documents d ON f.doc_id = d.doc_id
+            WHERE f.decision = 'present'
+            AND d.is_benchmark_eligible = TRUE
             GROUP BY category, subtype
         """, [total_docs])
 
@@ -353,9 +362,16 @@ class DatabaseManager:
         This is what compliance officers will pay for - industry intelligence
         that gets better with every document.
         """
-        # Get total documents
+        # Get total documents (all completed)
         total_docs = self.conn.execute("""
             SELECT COUNT(*) FROM documents WHERE processing_status = 'completed'
+        """).fetchone()[0]
+
+        # Get BENCHMARK POOL size (only eligible documents)
+        benchmark_pool_size = self.conn.execute("""
+            SELECT COUNT(*) FROM documents
+            WHERE processing_status = 'completed'
+            AND is_benchmark_eligible = TRUE
         """).fetchone()[0]
 
         # Get total findings
@@ -395,6 +411,7 @@ class DatabaseManager:
 
         return {
             'total_documents': total_docs,
+            'benchmark_pool_size': benchmark_pool_size,  # NEW: Show benchmark pool
             'total_findings': total_findings,
             'avg_risk_score': round(avg_risk, 1),
             'category_benchmarks': [
