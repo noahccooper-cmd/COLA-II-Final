@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>COLA II - Internal Intelligence</title>
+    <title>COLA II - Internal Intelligence Platform</title>
     <style>
         * {
             margin: 0;
@@ -15,151 +15,106 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
             background: #0a0a0a;
             color: #ffffff;
-            min-height: 100vh;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Layout */
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 320px;
+            background: #0f0f0f;
+            border-right: 1px solid #222;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            padding: 20px;
+            overflow: hidden;
         }
 
-        .container {
-            max-width: 900px;
-            width: 100%;
+        .sidebar-header {
+            padding: 25px 20px;
+            border-bottom: 1px solid #222;
         }
 
-        header {
-            text-align: center;
-            margin-bottom: 40px;
-            padding: 40px 0;
-        }
-
-        h1 {
-            font-size: 48px;
+        .logo {
+            font-size: 28px;
             font-weight: 700;
-            letter-spacing: 2px;
-            margin-bottom: 10px;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
         }
 
-        .gold-bars {
-            display: flex;
-            justify-content: center;
-            gap: 8px;
-            margin: 20px 0;
-        }
-
-        .gold-bar {
-            width: 30px;
-            height: 8px;
-            background: #DAA520;
-        }
-
-        .subtitle {
-            font-size: 18px;
-            color: #888;
-            letter-spacing: 3px;
+        .tagline {
+            font-size: 11px;
+            color: #666;
             text-transform: uppercase;
+            letter-spacing: 2px;
         }
 
-        .upload-zone {
-            background: #1a1a1a;
-            border: 2px dashed #333;
-            border-radius: 12px;
-            padding: 60px 40px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-bottom: 30px;
+        .document-library {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
         }
 
-        .upload-zone:hover {
-            border-color: #DAA520;
-            background: #222;
-        }
-
-        .upload-zone.dragover {
-            border-color: #DAA520;
-            background: #222;
-        }
-
-        .upload-icon {
-            font-size: 64px;
-            margin-bottom: 20px;
-            color: #555;
-        }
-
-        .upload-text {
-            font-size: 18px;
+        .library-header {
+            padding: 10px 5px;
+            font-size: 12px;
             color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .doc-card {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 12px;
             margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
         }
 
-        .upload-hint {
-            font-size: 14px;
-            color: #555;
+        .doc-card:hover {
+            border-color: #DAA520;
+            background: #222;
         }
 
-        input[type="file"] {
-            display: none;
+        .doc-card.active {
+            border-color: #DAA520;
+            background: #222;
         }
 
-        .analyzing {
-            display: none;
-            background: #1a1a1a;
-            border: 1px solid #333;
-            border-radius: 12px;
-            padding: 30px;
-            text-align: center;
-            margin-bottom: 30px;
+        .doc-name {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .analyzing.active {
-            display: block;
+        .doc-date {
+            font-size: 10px;
+            color: #666;
+            margin-bottom: 8px;
         }
 
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid #333;
-            border-top-color: #DAA520;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .results {
-            display: none;
-        }
-
-        .results.active {
-            display: block;
-        }
-
-        .risk-card {
-            background: #1a1a1a;
-            border: 1px solid #333;
-            border-radius: 12px;
-            padding: 30px;
-            margin-bottom: 30px;
-        }
-
-        .risk-header {
+        .doc-stats {
             display: flex;
-            justify-content: space-between;
+            gap: 8px;
             align-items: center;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            gap: 15px;
         }
 
-        .risk-level {
-            font-size: 20px;
-            font-weight: 700;
-            padding: 10px 20px;
-            border-radius: 6px;
+        .risk-badge {
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 600;
         }
 
         .risk-high {
@@ -177,71 +132,316 @@
             color: white;
         }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
+        .findings-count {
+            font-size: 10px;
+            color: #888;
         }
 
-        .stat-box {
-            background: #0a0a0a;
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .top-bar {
+            padding: 20px 30px;
+            background: #0f0f0f;
+            border-bottom: 1px solid #222;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .top-bar h1 {
+            font-size: 20px;
+            color: #DAA520;
+        }
+
+        .upload-btn {
+            background: #DAA520;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .upload-btn:hover {
+            background: #B8860B;
+        }
+
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+        }
+
+        /* Upload Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #1a1a1a;
             border: 1px solid #333;
+            border-radius: 12px;
+            padding: 30px;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            font-size: 20px;
+            color: #DAA520;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #666;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .close-btn:hover {
+            color: #fff;
+        }
+
+        .upload-zone {
+            background: #0a0a0a;
+            border: 2px dashed #333;
             border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .upload-zone:hover {
+            border-color: #DAA520;
+        }
+
+        .upload-zone.dragover {
+            border-color: #DAA520;
+            background: #1a1a1a;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            color: #555;
+        }
+
+        .upload-text {
+            font-size: 14px;
+            color: #888;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .analyzing {
+            text-align: center;
             padding: 20px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #333;
+            border-top-color: #DAA520;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Dashboard */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .metric-card {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 25px;
             text-align: center;
         }
 
-        .stat-number {
-            font-size: 32px;
+        .metric-number {
+            font-size: 36px;
             font-weight: 700;
             color: #DAA520;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
         }
 
-        .stat-label {
+        .metric-label {
             font-size: 11px;
             color: #888;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
 
-        .findings-list {
-            margin-top: 30px;
+        /* Benchmarks */
+        .benchmark-panel {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .benchmark-panel h2 {
+            font-size: 18px;
+            color: #DAA520;
+            margin-bottom: 20px;
+        }
+
+        .violation-bar {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 12px;
+        }
+
+        .violation-label {
+            flex: 0 0 200px;
+            font-size: 13px;
+            color: #ccc;
+        }
+
+        .bar-container {
+            flex: 1;
+            background: #0a0a0a;
+            border-radius: 4px;
+            height: 24px;
+            position: relative;
+        }
+
+        .bar-fill {
+            background: linear-gradient(90deg, #DAA520, #B8860B);
+            height: 100%;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #000;
+            min-width: 30px;
+        }
+
+        /* Document View */
+        .document-view {
+            max-width: 1000px;
+        }
+
+        .doc-header {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .doc-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .percentile-banner {
+            background: linear-gradient(135deg, #DAA520, #B8860B);
+            color: #000;
+            padding: 15px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 15px;
+        }
+
+        .findings-section {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 25px;
+        }
+
+        .findings-section h3 {
+            font-size: 16px;
+            color: #DAA520;
+            margin-bottom: 15px;
         }
 
         .finding-item {
-            background: #1a1a1a;
+            background: #0f0f0f;
             border-left: 4px solid #DAA520;
             border-radius: 6px;
-            padding: 20px;
-            margin-bottom: 15px;
+            padding: 15px;
+            margin-bottom: 12px;
         }
 
         .finding-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
-            gap: 10px;
-            flex-wrap: wrap;
+            margin-bottom: 8px;
         }
 
         .finding-category {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             color: #DAA520;
             text-transform: uppercase;
         }
 
         .finding-severity {
-            font-size: 11px;
-            padding: 4px 12px;
+            font-size: 10px;
+            padding: 3px 10px;
             border-radius: 12px;
             font-weight: 600;
         }
 
-        .severity-high, .severity-critical, .severity-prohibited_transaction {
+        .severity-prohibited_transaction,
+        .severity-critical,
+        .severity-high {
             background: #dc3545;
             color: white;
         }
@@ -258,16 +458,8 @@
 
         .finding-text {
             color: #ccc;
-            line-height: 1.6;
-            margin-bottom: 10px;
-            font-size: 14px;
-        }
-
-        .finding-citation {
-            font-size: 11px;
-            color: #666;
-            font-style: italic;
-            margin-top: 8px;
+            font-size: 13px;
+            line-height: 1.5;
         }
 
         .finding-precedent {
@@ -275,171 +467,395 @@
             color: #DAA520;
             margin-top: 8px;
             padding-top: 8px;
-            border-top: 1px solid #333;
+            border-top: 1px solid #2a2a2a;
         }
 
-        .download-btn {
-            background: #DAA520;
-            color: #000;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            width: 100%;
-            margin-top: 20px;
-        }
-
-        .download-btn:hover {
-            background: #B8860B;
-            transform: translateY(-2px);
-        }
-
-        .download-btn:disabled {
-            background: #555;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .error-card {
-            background: #dc3545;
-            color: white;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .error-card.active {
-            display: block;
-        }
-
-        footer {
-            margin-top: 60px;
-            padding: 20px;
+        /* Empty State */
+        .empty-state {
             text-align: center;
-            color: #555;
-            font-size: 11px;
-            line-height: 1.6;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .empty-state h2 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #888;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #444;
+        }
+
+        /* Responsive */
+        @media (max-width: 968px) {
+            .sidebar {
+                width: 280px;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
 
         @media (max-width: 768px) {
-            h1 {
-                font-size: 36px;
+            .sidebar {
+                position: fixed;
+                left: -320px;
+                z-index: 100;
+                transition: left 0.3s ease;
             }
-            
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            
-            .risk-header {
-                flex-direction: column;
-                align-items: flex-start;
+
+            .sidebar.open {
+                left: 0;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>COLA II</h1>
-            <div class="gold-bars">
-                <div class="gold-bar"></div>
-                <div class="gold-bar"></div>
-                <div class="gold-bar"></div>
-                <div class="gold-bar"></div>
-                <div class="gold-bar"></div>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">COLA II</div>
+                <div class="tagline">Internal Intelligence</div>
             </div>
-            <div class="subtitle">Internal Intelligence</div>
-        </header>
-
-        <div class="error-card" id="errorCard">
-            <strong>Error:</strong> <span id="errorText"></span>
-        </div>
-
-        <div class="upload-zone" id="uploadZone">
-            <div class="upload-icon">↑</div>
-            <div class="upload-text">Drop 408(b)(2) Disclosure</div>
-            <div class="upload-hint">or click to browse</div>
-            <input type="file" id="fileInput" accept=".pdf">
-        </div>
-
-        <div class="analyzing" id="analyzing">
-            <div class="spinner"></div>
-            <div style="color: #888;">Analyzing with 70+ lawsuit-trained patterns...</div>
-            <div style="color: #555; font-size: 12px; margin-top: 10px;">
-                Tussey v. ABB | Cornell v. Cunningham | Harris v. Amgen
-            </div>
-        </div>
-
-        <div class="results" id="results">
-            <div class="risk-card">
-                <div class="risk-header">
-                    <h2 style="color: #DAA520;">Risk Assessment</h2>
-                    <div class="risk-level" id="riskLevel">HIGH RISK</div>
+            <div class="document-library">
+                <div class="library-header" id="libraryHeader">Documents (0)</div>
+                <div id="documentList">
+                    <!-- Documents will be loaded here -->
                 </div>
+            </div>
+        </div>
 
-                <div class="stats-grid">
-                    <div class="stat-box">
-                        <div class="stat-number" id="totalFindings">0</div>
-                        <div class="stat-label">Total Findings</div>
-                    </div>
-                    <div class="stat-box">
-                        <div class="stat-number" id="highSeverity">0</div>
-                        <div class="stat-label">High Severity</div>
-                    </div>
-                    <div class="stat-box">
-                        <div class="stat-number" id="lawsuitRisk">0</div>
-                        <div class="stat-label">Lawsuit Risk</div>
-                    </div>
-                    <div class="stat-box">
-                        <div class="stat-number" id="confidence">0%</div>
-                        <div class="stat-label">Avg Confidence</div>
-                    </div>
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="top-bar">
+                <h1 id="pageTitle">Dashboard</h1>
+                <button class="upload-btn" onclick="openUploadModal()">↑ Upload Document</button>
+            </div>
+            <div class="content-area" id="contentArea">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div class="modal" id="uploadModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Upload Document</h2>
+                <button class="close-btn" onclick="closeUploadModal()">&times;</button>
+            </div>
+
+            <div id="uploadArea">
+                <div class="upload-zone" id="uploadZone">
+                    <div class="upload-icon">↑</div>
+                    <div class="upload-text">Drop 408(b)(2) Disclosure or click to browse</div>
+                    <input type="file" id="fileInput" accept=".pdf">
                 </div>
             </div>
 
-            <div class="risk-card">
-                <h2 style="color: #DAA520; margin-bottom: 20px;">Findings</h2>
-                <div class="findings-list" id="findingsList"></div>
+            <div id="analyzingArea" style="display: none;">
+                <div class="analyzing">
+                    <div class="spinner"></div>
+                    <div style="color: #888;">Analyzing with 70+ lawsuit-trained patterns...</div>
+                    <div style="color: #555; font-size: 11px; margin-top: 8px;">
+                        Tussey v. ABB | Cornell v. Cunningham | Harris v. Amgen
+                    </div>
+                </div>
             </div>
-
-            <button class="download-btn" id="downloadBtn">📄 Download PDF Compliance Report</button>
         </div>
-
-        <footer>
-            <strong>COLA II v3.0 FINAL</strong><br>
-            Lawsuit-Trained Detection Engine<br>
-            70+ patterns from Tussey v. ABB ($55M), Cornell v. Cunningham (Supreme Court), Harris v. Amgen<br>
-            <br>
-            <span style="color: #333;">100% Offline | Privacy-First | Production-Ready</span>
-        </footer>
     </div>
 
     <script>
+        let currentDocId = null;
+        let documents = [];
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadDocuments();
+            loadDashboard();
+        });
+
+        // ====================================================================
+        // DOCUMENT LIBRARY
+        // ====================================================================
+
+        async function loadDocuments() {
+            try {
+                const response = await fetch('/api/documents');
+                const data = await response.json();
+                documents = data.documents || [];
+
+                renderDocumentList();
+            } catch (error) {
+                console.error('Failed to load documents:', error);
+            }
+        }
+
+        function renderDocumentList() {
+            const list = document.getElementById('documentList');
+            const header = document.getElementById('libraryHeader');
+
+            header.textContent = `Documents (${documents.length})`;
+
+            if (documents.length === 0) {
+                list.innerHTML = `
+                    <div style="text-align: center; padding: 40px 20px; color: #666; font-size: 13px;">
+                        No documents yet.<br>Upload your first disclosure to start building intelligence.
+                    </div>
+                `;
+                return;
+            }
+
+            list.innerHTML = documents.map(doc => {
+                const riskClass = doc.risk_score >= 60 ? 'risk-high' :
+                                doc.risk_score >= 30 ? 'risk-medium' : 'risk-low';
+                const date = new Date(doc.upload_date).toLocaleDateString();
+
+                return `
+                    <div class="doc-card ${currentDocId === doc.doc_id ? 'active' : ''}"
+                         onclick="viewDocument('${doc.doc_id}')">
+                        <div class="doc-name" title="${doc.filename}">${doc.filename}</div>
+                        <div class="doc-date">${date}</div>
+                        <div class="doc-stats">
+                            <span class="risk-badge ${riskClass}">Risk: ${doc.risk_score}</span>
+                            <span class="findings-count">${doc.total_findings} findings</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ====================================================================
+        // DASHBOARD
+        // ====================================================================
+
+        async function loadDashboard() {
+            currentDocId = null;
+            document.getElementById('pageTitle').textContent = 'Dashboard';
+
+            try {
+                const response = await fetch('/api/dashboard');
+                const data = await response.json();
+
+                renderDashboard(data);
+            } catch (error) {
+                console.error('Failed to load dashboard:', error);
+                showEmptyState();
+            }
+        }
+
+        function renderDashboard(data) {
+            const stats = data.stats || {};
+            const benchmarks = data.benchmarks || {};
+
+            if (stats.total_documents === 0) {
+                showEmptyState();
+                return;
+            }
+
+            const contentArea = document.getElementById('contentArea');
+            contentArea.innerHTML = `
+                <div class="dashboard-grid">
+                    <div class="metric-card">
+                        <div class="metric-number">${stats.total_documents}</div>
+                        <div class="metric-label">Documents Analyzed</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-number">${stats.total_findings}</div>
+                        <div class="metric-label">Total Findings</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-number">${Math.round(stats.avg_risk_score)}</div>
+                        <div class="metric-label">Avg Risk Score</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-number">${stats.avg_processing_time}s</div>
+                        <div class="metric-label">Avg Processing Time</div>
+                    </div>
+                </div>
+
+                <div class="benchmark-panel">
+                    <h2>Industry Intelligence</h2>
+                    <div style="color: #888; font-size: 13px; margin-bottom: 20px;">
+                        Benchmark data from ${stats.total_documents} analyzed disclosures
+                    </div>
+
+                    ${renderCommonViolations(benchmarks)}
+                </div>
+
+                <div class="benchmark-panel">
+                    <h2>Litigation Precedents Detected</h2>
+                    <div style="color: #888; font-size: 14px; line-height: 1.6;">
+                        <strong style="color: #DAA520;">$${(stats.settlement_value_detected / 1000000).toFixed(0)}M+</strong>
+                        in settlements from patterns detected by this system:
+                        <ul style="margin-top: 15px; padding-left: 20px;">
+                            <li style="margin-bottom: 8px;">Tussey v. ABB: $55M (Revenue sharing, float income)</li>
+                            <li style="margin-bottom: 8px;">Harris v. Amgen: $35M (Affiliate conflicts)</li>
+                            <li>Cunningham v. Cornell: Supreme Court (Excessive recordkeeping)</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderCommonViolations(benchmarks) {
+            if (!benchmarks.common_violations || benchmarks.common_violations.length === 0) {
+                return '<div style="color: #666; font-size: 13px;">Analyzing violations...</div>';
+            }
+
+            return benchmarks.common_violations.slice(0, 5).map(v => `
+                <div class="violation-bar">
+                    <div class="violation-label">${formatCategory(v.category)}</div>
+                    <div class="bar-container">
+                        <div class="bar-fill" style="width: ${v.frequency}%">
+                            ${Math.round(v.frequency)}%
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function showEmptyState() {
+            const contentArea = document.getElementById('contentArea');
+            contentArea.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">📄</div>
+                    <h2>Start Building Intelligence</h2>
+                    <p>Upload your first 408(b)(2) disclosure to begin analyzing and benchmarking compliance data.</p>
+                    <button class="upload-btn" onclick="openUploadModal()"
+                            style="margin-top: 20px; padding: 12px 30px;">
+                        Upload First Document
+                    </button>
+                </div>
+            `;
+        }
+
+        // ====================================================================
+        // DOCUMENT VIEW
+        // ====================================================================
+
+        async function viewDocument(docId) {
+            currentDocId = docId;
+            document.getElementById('pageTitle').textContent = 'Document Details';
+            renderDocumentList(); // Update active state
+
+            try {
+                const response = await fetch(`/api/document/${docId}`);
+                const data = await response.json();
+
+                renderDocumentView(data);
+            } catch (error) {
+                console.error('Failed to load document:', error);
+            }
+        }
+
+        function renderDocumentView(data) {
+            const doc = data.document;
+            const findings = data.findings || [];
+            const percentile = data.percentile;
+
+            const contentArea = document.getElementById('contentArea');
+            contentArea.innerHTML = `
+                <div class="document-view">
+                    <div class="doc-header">
+                        <div class="doc-title">${doc.filename}</div>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px;">
+                            <div>
+                                <div style="font-size: 11px; color: #666; text-transform: uppercase; margin-bottom: 4px;">Risk Score</div>
+                                <div style="font-size: 24px; font-weight: 700; color: ${doc.risk_score >= 60 ? '#dc3545' : doc.risk_score >= 30 ? '#ffc107' : '#28a745'};">${doc.risk_score}/100</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 11px; color: #666; text-transform: uppercase; margin-bottom: 4px;">Total Findings</div>
+                                <div style="font-size: 24px; font-weight: 700; color: #DAA520;">${doc.total_findings}</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 11px; color: #666; text-transform: uppercase; margin-bottom: 4px;">Processing Time</div>
+                                <div style="font-size: 24px; font-weight: 700; color: #DAA520;">${doc.processing_time?.toFixed(1) || 0}s</div>
+                            </div>
+                        </div>
+
+                        ${percentile ? `
+                            <div class="percentile-banner">
+                                📊 This disclosure ranks worse than ${percentile.percentile.toFixed(0)}% of similar plans
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <div class="findings-section">
+                        <h3>Findings (${findings.length})</h3>
+                        ${findings.slice(0, 20).map(f => `
+                            <div class="finding-item">
+                                <div class="finding-header">
+                                    <div class="finding-category">${formatCategory(f.category)}</div>
+                                    <div class="finding-severity severity-${f.severity}">${f.severity.toUpperCase().replace(/_/g, ' ')}</div>
+                                </div>
+                                <div class="finding-text">${f.llm_analysis || 'No analysis available'}</div>
+                                ${f.lawsuit_precedent ? `<div class="finding-precedent">⚖️ ${f.lawsuit_precedent}</div>` : ''}
+                            </div>
+                        `).join('')}
+
+                        ${findings.length > 20 ? `
+                            <div style="text-align: center; color: #666; margin-top: 20px; font-size: 13px;">
+                                + ${findings.length - 20} more findings
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        // ====================================================================
+        // UPLOAD
+        // ====================================================================
+
+        function openUploadModal() {
+            document.getElementById('uploadModal').classList.add('active');
+            document.getElementById('uploadArea').style.display = 'block';
+            document.getElementById('analyzingArea').style.display = 'none';
+        }
+
+        function closeUploadModal() {
+            document.getElementById('uploadModal').classList.remove('active');
+            document.getElementById('fileInput').value = '';
+        }
+
         const uploadZone = document.getElementById('uploadZone');
         const fileInput = document.getElementById('fileInput');
-        const analyzing = document.getElementById('analyzing');
-        const results = document.getElementById('results');
-        const errorCard = document.getElementById('errorCard');
-        const errorText = document.getElementById('errorText');
-        const downloadBtn = document.getElementById('downloadBtn');
-        
-        let currentResults = null;
 
-        // Upload zone click
         uploadZone.addEventListener('click', () => fileInput.click());
 
-        // File selection
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
-                handleFile(e.target.files[0]);
+                handleFileUpload(e.target.files[0]);
             }
         });
 
-        // Drag and drop
         uploadZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             uploadZone.classList.add('dragover');
@@ -453,22 +869,19 @@
             e.preventDefault();
             uploadZone.classList.remove('dragover');
             if (e.dataTransfer.files.length > 0) {
-                handleFile(e.dataTransfer.files[0]);
+                handleFileUpload(e.dataTransfer.files[0]);
             }
         });
 
-        // Handle file upload
-        async function handleFile(file) {
+        async function handleFileUpload(file) {
             if (!file.name.toLowerCase().endsWith('.pdf')) {
-                showError('Please upload a PDF file');
+                alert('Please upload a PDF file');
                 return;
             }
 
-            // Hide upload, show analyzing
-            uploadZone.style.display = 'none';
-            results.classList.remove('active');
-            errorCard.classList.remove('active');
-            analyzing.classList.add('active');
+            // Show analyzing state
+            document.getElementById('uploadArea').style.display = 'none';
+            document.getElementById('analyzingArea').style.display = 'block';
 
             const formData = new FormData();
             formData.append('file', file);
@@ -480,142 +893,30 @@
                 });
 
                 if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Analysis failed');
+                    throw new Error('Upload failed');
                 }
 
                 const data = await response.json();
-                if (data.error) {
-                    throw new Error(data.error);
-                }
-                
-                currentResults = data;
-                displayResults(data);
+
+                // Reload documents and view the new one
+                await loadDocuments();
+                closeUploadModal();
+                viewDocument(data.doc_id);
 
             } catch (error) {
-                console.error('Error:', error);
-                showError(error.message || 'Analysis failed. Please try again.');
-                uploadZone.style.display = 'block';
-            } finally {
-                analyzing.classList.remove('active');
+                console.error('Upload error:', error);
+                alert('Upload failed. Please try again.');
+                document.getElementById('uploadArea').style.display = 'block';
+                document.getElementById('analyzingArea').style.display = 'none';
             }
         }
 
-        // Display results
-        function displayResults(data) {
-            const summary = data.summary || {};
-            
-            // Risk level
-            const lawsuitRisk = summary.lawsuit_risk_score || 0;
-            const riskLevelEl = document.getElementById('riskLevel');
-            
-            if (lawsuitRisk >= 70) {
-                riskLevelEl.textContent = '🔴 HIGH RISK';
-                riskLevelEl.className = 'risk-level risk-high';
-            } else if (lawsuitRisk >= 50) {
-                riskLevelEl.textContent = '🟡 MEDIUM RISK';
-                riskLevelEl.className = 'risk-level risk-medium';
-            } else {
-                riskLevelEl.textContent = '🟢 LOW RISK';
-                riskLevelEl.className = 'risk-level risk-low';
-            }
+        // ====================================================================
+        // UTILITIES
+        // ====================================================================
 
-            // Stats
-            document.getElementById('totalFindings').textContent = summary.total_findings || 0;
-            document.getElementById('highSeverity').textContent = summary.high_severity_count || 0;
-            document.getElementById('lawsuitRisk').textContent = `${lawsuitRisk}/100`;
-            document.getElementById('confidence').textContent = `${Math.round((summary.avg_confidence || 0) * 100)}%`;
-
-            // Findings list
-            const findingsList = document.getElementById('findingsList');
-            findingsList.innerHTML = '';
-
-            const findings = data.findings || [];
-            
-            // Sort by severity
-            const severityOrder = {
-                'prohibited_transaction': 0,
-                'critical': 1,
-                'high': 2,
-                'medium': 3,
-                'low': 4
-            };
-            
-            findings.sort((a, b) => {
-                const orderA = severityOrder[a.severity] || 5;
-                const orderB = severityOrder[b.severity] || 5;
-                return orderA - orderB;
-            });
-            
-            const displayFindings = findings.slice(0, 15); // Show top 15
-
-            displayFindings.forEach((finding, idx) => {
-                const findingEl = document.createElement('div');
-                findingEl.className = 'finding-item';
-
-                const severity = finding.severity || 'medium';
-                const severityClass = `severity-${severity.toLowerCase().replace(/ /g, '_')}`;
-                
-                const category = (finding.category || 'unknown').replace(/_/g, ' ').toUpperCase();
-                const citation = finding.citations && finding.citations[0] && finding.citations[0].excerpt ? 
-                    finding.citations[0].excerpt : '';
-                const analysis = finding.llm_analysis || 'No analysis available';
-                const precedent = finding.lawsuit_precedent || '';
-                
-                findingEl.innerHTML = `
-                    <div class="finding-header">
-                        <div class="finding-category">${category}</div>
-                        <div class="finding-severity ${severityClass}">${severity.toUpperCase().replace(/_/g, ' ')}</div>
-                    </div>
-                    <div class="finding-text">${analysis}</div>
-                    ${citation ? `<div class="finding-citation">"${citation.substring(0, 150)}${citation.length > 150 ? '...' : ''}"</div>` : ''}
-                    ${precedent ? `<div class="finding-precedent">⚖️ ${precedent}</div>` : ''}
-                `;
-
-                findingsList.appendChild(findingEl);
-            });
-
-            if (findings.length > 15) {
-                const moreEl = document.createElement('div');
-                moreEl.style.textAlign = 'center';
-                moreEl.style.color = '#666';
-                moreEl.style.marginTop = '20px';
-                moreEl.style.fontSize = '13px';
-                moreEl.textContent = `+ ${findings.length - 15} more findings in full PDF report`;
-                findingsList.appendChild(moreEl);
-            }
-
-            if (findings.length === 0) {
-                findingsList.innerHTML = '<div style="text-align: center; color: #666; padding: 40px;">No significant compliance issues detected.</div>';
-            }
-
-            // Enable download button if PDF available
-            if (data.pdf_report) {
-                downloadBtn.disabled = false;
-            } else {
-                downloadBtn.disabled = true;
-                downloadBtn.textContent = '⚠️ PDF Report Not Available';
-            }
-
-            // Show results
-            results.classList.add('active');
-        }
-
-        // Download report
-        downloadBtn.addEventListener('click', () => {
-            if (currentResults && currentResults.pdf_report) {
-                const filename = currentResults.pdf_report.split('/').pop();
-                window.location.href = `/outputs/${filename}`;
-            } else {
-                showError('PDF report not available');
-            }
-        });
-
-        // Show error
-        function showError(message) {
-            errorText.textContent = message;
-            errorCard.classList.add('active');
-            setTimeout(() => errorCard.classList.remove('active'), 6000);
+        function formatCategory(cat) {
+            return cat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
         }
     </script>
 </body>

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-COLA II v3 FINAL - Main Backend
-Integrated Flask API with v3 detection + PDF reports
+COLA II v3 FINAL - Main Backend with Multi-Document Persistence
+Integrated Flask API with v3 detection + PDF reports + Data Gravity
 """
 
 import os
@@ -10,10 +10,14 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional
 import json
+import time
 
 # Flask
 from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
+
+# Database for multi-document persistence
+from database.db_manager import DatabaseManager
 
 # PDF Processing
 try:
@@ -72,6 +76,11 @@ print(f"   Ruleset: {detection_engine.ruleset_version}")
 print(f"   Model: {detection_engine.model_version}")
 print(f"   PDF Support: {PDF_SUPPORT}")
 print(f"   PDF Reports: {PDF_REPORT_SUPPORT}")
+
+# Initialize database for multi-document persistence 📊
+print("\n💾 Initializing Multi-Document Database...")
+db = DatabaseManager()
+print("✅ Database Ready - Data Gravity Enabled")
 print("="*80 + "\n")
 
 
@@ -235,71 +244,119 @@ def health():
 
 @app.route('/api/upload', methods=['POST'])
 def upload_document():
-    """Upload and analyze PDF with v3 engine"""
-    
+    """Upload and analyze PDF with v3 engine + multi-document persistence"""
+
     if 'file' not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
-    
+
     file = request.files['file']
-    
+
     if file.filename == '':
         return jsonify({"error": "Empty filename"}), 400
-    
+
     if not file.filename.lower().endswith('.pdf'):
         return jsonify({"error": "Only PDF files supported"}), 400
-    
+
     try:
         filename = file.filename
-        upload_path = UPLOAD_DIR / filename
-        file.save(str(upload_path))
-        
-        # Process with v3
+
+        # Read file content for hashing (detect duplicates)
+        file_content = file.read()
+        file.seek(0)  # Reset for saving
+
+        # Get optional metadata from form
+        metadata = {
+            'document_type': request.form.get('doc_type', 'other'),
+            'plan_name': request.form.get('plan_name'),
+            'plan_size_bucket': request.form.get('plan_size', 'unknown')
+        }
+
         print(f"\n{'='*80}")
         print(f"🚀 NEW UPLOAD: {filename}")
         print(f"{'='*80}")
-        
-        result = process_document(upload_path, doc_id=f"doc_{Path(filename).stem}")
-        
+
+        # Store document in database (get doc_id)
+        doc_id = db.store_document(filename, file_content, metadata)
+
+        # Save file physically
+        upload_path = UPLOAD_DIR / f"{doc_id}_{filename}"
+        file.save(str(upload_path))
+
+        # Process with v3 detection engine
+        start_time = time.time()
+
+        result = process_document(upload_path, doc_id=doc_id)
+
+        processing_time = time.time() - start_time
+
+        # Update page count in metadata if available
+        if 'pages' in result:
+            metadata['page_count'] = result['pages']
+
+        # Store findings in database
+        db.store_findings(doc_id, result['findings'])
+
+        # Calculate risk score
+        risk_score = result['summary'].get('lawsuit_risk_score', 0)
+
+        # Update document status
+        db.update_document_status(
+            doc_id=doc_id,
+            status='completed',
+            total_findings=result['summary']['total_findings'],
+            risk_score=risk_score,
+            processing_time=processing_time
+        )
+
+        # Recalculate benchmarks (DATA GRAVITY!)
+        db.calculate_benchmarks()
+
+        # Get percentile ranking
+        percentile_data = db.get_document_percentile(doc_id)
+        result['percentile'] = percentile_data
+
         # Save JSON results
-        output_json = OUTPUT_DIR / f"{Path(filename).stem}_findings.json"
+        output_json = OUTPUT_DIR / f"{doc_id}_findings.json"
         with open(output_json, 'w') as f:
             json.dump(result, f, indent=2)
-        
+
         result['findings_json'] = str(output_json)
-        
+
         # Generate PDF report if available
         if PDF_REPORT_SUPPORT and len(result['findings']) > 0:
             try:
-                pdf_report = OUTPUT_DIR / f"{Path(filename).stem}_COMPLIANCE_REPORT.pdf"
+                pdf_report = OUTPUT_DIR / f"{doc_id}_COMPLIANCE_REPORT.pdf"
                 print(f"   📑 Generating PDF compliance report...")
-                
+
                 generate_compliance_report(
                     findings_data=result,
                     output_path=str(pdf_report)
                 )
-                
+
                 result['pdf_report'] = str(pdf_report)
                 print(f"   ✅ PDF report: {pdf_report.name}")
             except Exception as e:
                 print(f"   ⚠️  PDF report generation failed: {e}")
-        
+
         # Audit log
         audit_entry = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "action": "analyze_v3",
+            "doc_id": doc_id,
             "document": filename,
             "findings_count": result["summary"]["total_findings"],
             "high_severity_count": result["summary"].get("high_severity_count", 0),
-            "lawsuit_risk_score": result["summary"].get("lawsuit_risk_score", 0)
+            "lawsuit_risk_score": risk_score,
+            "percentile": percentile_data['percentile']
         }
-        
+
         with open(AUDIT_DIR / "log.jsonl", 'a') as f:
             f.write(json.dumps(audit_entry) + "\n")
-        
+
         print(f"{'='*80}\n")
-        
+
         return jsonify(result)
-        
+
     except Exception as e:
         print(f"❌ ERROR: {e}")
         import traceback
@@ -369,6 +426,116 @@ def download_file(filename):
         return send_from_directory(OUTPUT_DIR, filename, as_attachment=True)
     except FileNotFoundError:
         return jsonify({"error": "File not found"}), 404
+
+
+@app.route('/api/documents', methods=['GET'])
+def get_documents():
+    """
+    List all analyzed documents
+
+    This powers the document library sidebar - the visual proof of data gravity
+    """
+    try:
+        documents = db.get_all_documents()
+        return jsonify({
+            'documents': documents,
+            'total': len(documents)
+        })
+    except Exception as e:
+        print(f"❌ ERROR: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/document/<doc_id>', methods=['GET'])
+def get_document(doc_id):
+    """
+    Get specific document with findings and percentile ranking
+
+    This is where users see: "Worse than 73% of similar plans"
+    """
+    try:
+        # Get document metadata
+        document = db.get_document_by_id(doc_id)
+        if not document:
+            return jsonify({"error": "Document not found"}), 404
+
+        # Get findings
+        findings = db.get_document_findings(doc_id)
+
+        # Get percentile ranking
+        percentile = db.get_document_percentile(doc_id)
+
+        return jsonify({
+            'document': document,
+            'findings': findings,
+            'percentile': percentile,
+            'total_findings': len(findings)
+        })
+    except Exception as e:
+        print(f"❌ ERROR: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/benchmarks', methods=['GET'])
+def get_benchmarks():
+    """
+    Get aggregate benchmark statistics
+
+    This is the DATA GRAVITY - proprietary intelligence that compounds with every upload
+    """
+    try:
+        benchmarks = db.get_benchmarks()
+        return jsonify(benchmarks)
+    except Exception as e:
+        print(f"❌ ERROR: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/compare', methods=['POST'])
+def compare_documents():
+    """
+    Compare multiple documents side-by-side
+
+    Perfect for RIAs comparing multiple plan disclosures
+    """
+    try:
+        data = request.get_json()
+        if not data or 'doc_ids' not in data:
+            return jsonify({"error": "No doc_ids provided"}), 400
+
+        doc_ids = data['doc_ids']
+        if not isinstance(doc_ids, list):
+            return jsonify({"error": "doc_ids must be an array"}), 400
+
+        comparison = db.compare_documents(doc_ids)
+
+        return jsonify({
+            'comparison': comparison,
+            'total_compared': len(comparison)
+        })
+    except Exception as e:
+        print(f"❌ ERROR: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/dashboard', methods=['GET'])
+def get_dashboard():
+    """
+    Get dashboard statistics for the metrics panel
+
+    These are the numbers that make investors lean forward
+    """
+    try:
+        stats = db.get_dashboard_stats()
+        benchmarks = db.get_benchmarks()
+
+        return jsonify({
+            'stats': stats,
+            'benchmarks': benchmarks
+        })
+    except Exception as e:
+        print(f"❌ ERROR: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/outputs/<path:filename>')
