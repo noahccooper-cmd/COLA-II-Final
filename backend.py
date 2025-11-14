@@ -37,6 +37,17 @@ from detection_engine_v3 import (
     findings_summary
 )
 
+# NEW: Ultimate Detection Analyzers
+try:
+    from quantitative_analyzer import QuantitativeAnalyzer, analyze_fees_in_document
+    from omission_detector import OmissionDetector, check_document_completeness
+    from nlp_analyzer import FuzzyMatcher, ObfuscationDetector, analyze_document_language
+    from precedent_scorer import PrecedentScorer, score_findings_with_precedents
+    ULTIMATE_ANALYZERS = True
+except ImportError as e:
+    print(f"⚠️  WARNING: Ultimate analyzers not fully available: {e}")
+    ULTIMATE_ANALYZERS = False
+
 # PDF Report Generation
 try:
     from generate_pdf_report import generate_compliance_report
@@ -49,7 +60,7 @@ except ImportError:
 # CONFIGURATION
 # ============================================================================
 
-APP_VERSION = "3.0.0-FINAL"
+APP_VERSION = "4.0.0-ULTIMATE"
 UPLOAD_DIR = Path("uploads")
 OUTPUT_DIR = Path("outputs")
 AUDIT_DIR = Path("audits")
@@ -278,55 +289,131 @@ def deduplicate_findings(findings: List[Dict]) -> Dict:
 # ============================================================================
 
 def process_document(pdf_path: Path, doc_id: Optional[str] = None) -> Dict:
-    """Process PDF with v3 engine and generate report"""
-    
+    """Process PDF with ULTIMATE v4 multi-pass analysis engine"""
+
     if doc_id is None:
         doc_id = f"doc_{pdf_path.stem}"
-    
+
     print(f"\n📄 Processing: {pdf_path.name}")
-    
+
     # 1. Extract pages
     print("   📖 Extracting pages...")
     pages = extract_pages_with_layout(pdf_path)
     print(f"   ✅ Extracted {len(pages)} pages")
-    
+
     if not pages or pages[0].text.startswith("Error"):
         return {
             "error": "Failed to extract pages from PDF",
             "summary": {"total_findings": 0},
             "findings": []
         }
-    
-    # 2. Run v3 detection
-    timestamp = datetime.utcnow().isoformat() + "Z"
-    print("   🔬 Running v3 lawsuit-trained analysis...")
-    findings = detection_engine.analyze_document(doc_id, pages, timestamp)
-    print(f"   ✅ Found {len(findings)} issues")
-    
-    # 3. Generate summary
-    summary = findings_summary(findings)
-    print(f"   📊 Risk Score: {summary.get('lawsuit_risk_score', 0)}/100")
 
-    # 4. Convert findings to dicts
+    # 2. PASS 1: Pattern Detection (200+ patterns)
+    timestamp = datetime.utcnow().isoformat() + "Z"
+    print("   🔬 PASS 1: Running v4 ultimate pattern analysis (200+ patterns)...")
+    findings = detection_engine.analyze_document(doc_id, pages, timestamp)
+    print(f"   ✅ Found {len(findings)} pattern matches")
+
+    # 3. PASS 2: Quantitative Analysis (if analyzers available)
+    full_text = "\n\n".join([p.text for p in pages])
+
+    if ULTIMATE_ANALYZERS:
+        print("   💰 PASS 2: Quantitative fee analysis...")
+        try:
+            quant_results = analyze_fees_in_document(full_text, None, None)
+            print(f"   ✅ Extracted {quant_results['extracted_fees']} fees, {len(quant_results.get('violations', []))} violations")
+        except Exception as e:
+            print(f"   ⚠️  Quantitative analysis error: {e}")
+            quant_results = {}
+
+        # 4. PASS 3: Omission Detection
+        print("   🔍 PASS 3: Checking for missing disclosures...")
+        try:
+            omission_report = check_document_completeness(full_text)
+            print(f"   ✅ Found {omission_report['total_omissions']} missing required elements")
+        except Exception as e:
+            print(f"   ⚠️  Omission detection error: {e}")
+            omission_report = {'total_omissions': 0}
+
+        # 5. PASS 4: NLP Analysis
+        print("   🧠 PASS 4: NLP obfuscation detection...")
+        try:
+            nlp_results = analyze_document_language(full_text)
+            print(f"   ✅ Found {len(nlp_results.get('obfuscation_detections', []))} obfuscation tactics")
+        except Exception as e:
+            print(f"   ⚠️  NLP analysis error: {e}")
+            nlp_results = {}
+    else:
+        quant_results = {}
+        omission_report = {'total_omissions': 0}
+        nlp_results = {}
+
+    # 6. Convert findings to dicts
     findings_dicts = [f.to_dict() for f in findings]
 
-    # 5. Apply smart deduplication
+    # 7. PASS 5: Precedent-Based Confidence Scoring
+    if ULTIMATE_ANALYZERS:
+        print("   ⚖️  PASS 5: Precedent-based confidence scoring...")
+        try:
+            precedent_db = Path(__file__).parent / 'audits' / 'lawsuit-cases' / 'comprehensive_precedents.json'
+            if precedent_db.exists():
+                findings_dicts = score_findings_with_precedents(findings_dicts, str(precedent_db))
+                print(f"   ✅ Updated confidence scores with legal precedents")
+            else:
+                findings_dicts = score_findings_with_precedents(findings_dicts, None)
+        except Exception as e:
+            print(f"   ⚠️  Precedent scoring error: {e}")
+
+    # 8. Calculate Litigation Risk Score
+    if ULTIMATE_ANALYZERS:
+        try:
+            from precedent_scorer import PrecedentScorer
+            scorer = PrecedentScorer()
+            litigation_risk = scorer.calculate_litigation_risk_score(findings_dicts)
+            precedent_report = scorer.generate_precedent_report(findings_dicts)
+        except:
+            litigation_risk = 0
+            precedent_report = {}
+    else:
+        litigation_risk = 0
+        precedent_report = {}
+
+    # 9. Generate summary
+    summary = findings_summary(findings)
+    summary['litigation_risk_score'] = litigation_risk
+    summary['risk_level'] = precedent_report.get('risk_level', 'UNKNOWN')
+    print(f"   📊 Litigation Risk Score: {litigation_risk}/100 ({summary['risk_level']})")
+
+    # 10. Apply smart deduplication
     dedup_result = deduplicate_findings(findings_dicts)
     print(f"   🔄 Deduplicated: {dedup_result['total_instances']} → {dedup_result['total_unique_issues']} unique issues")
 
-    # 6. Create result
+    # 11. Create comprehensive result
     result = {
         "document": pdf_path.name,
         "doc_id": doc_id,
         "timestamp": timestamp,
         "pages": len(pages),
-        "analyzer_version": APP_VERSION,
-        "engine": "v3-lawsuit-trained",
+        "analyzer_version": "4.0.0-ultimate",
+        "engine": "v4-ultimate-multi-pass",
         "summary": summary,
         "findings": findings_dicts,  # Original findings for database
         "grouped_findings": dedup_result['grouped_findings'],  # Grouped for UI
         "total_unique_issues": dedup_result['total_unique_issues'],
-        "total_instances": dedup_result['total_instances']
+        "total_instances": dedup_result['total_instances'],
+        # NEW: Enhanced analysis results
+        "quantitative_analysis": quant_results,
+        "omission_analysis": omission_report,
+        "nlp_analysis": {
+            "obfuscations": len(nlp_results.get('obfuscation_detections', [])),
+            "fuzzy_matches": len(nlp_results.get('fuzzy_matches', {}))
+        },
+        "litigation_risk": {
+            "score": litigation_risk,
+            "level": summary['risk_level'],
+            "precedent_count": precedent_report.get('total_precedent_count', 0),
+            "matched_cases": precedent_report.get('matched_precedents', [])
+        }
     }
 
     return result
