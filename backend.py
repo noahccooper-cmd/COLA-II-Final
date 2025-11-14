@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 COLA II v3 FINAL - Main Backend with Multi-Document Persistence
 Integrated Flask API with v3 detection + PDF reports + Data Gravity
