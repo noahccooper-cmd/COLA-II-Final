@@ -8,6 +8,7 @@ werkzeug==3.0.1
 
 # PDF processing
 PyMuPDF==1.23.8
+reportlab==4.0.7
 
 # Database for multi-document persistence
 duckdb>=0.9.0

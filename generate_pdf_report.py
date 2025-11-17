@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 COLA II v3 FINAL - PDF Compliance Report Generator
 Generates professional 10-page compliance reports

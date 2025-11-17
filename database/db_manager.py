@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 COLA II - Database Manager
 Handles persistent storage of documents, findings, and benchmark calculations

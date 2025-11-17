@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Start COLA II server without Flask debug mode (avoids DuckDB lock issues)
 """
